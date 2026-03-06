@@ -2,7 +2,6 @@ package synonymgenrator
 
 import (
 	"fmt"
-	"log"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -24,30 +23,25 @@ func LoadConfig(profileKey string) (LLMProfile, error) {
 
 	ctx := cuecontext.New()
 
-	// Load the package "example" from the current directory.
-	// We don't need to specify a config in this example.
-	insts := load.Instances([]string{"./LLM"}, nil)
+	// Load the CUE config from the Synonym_genrator directory
+	insts := load.Instances([]string{"./Synonym_genrator"}, nil)
 
-	// The current directory just has one file without any build tags,
-	// and that file belongs to the example package.
-	// So we get a single instance as a result.
+	// Build the CUE instance
 	v := ctx.BuildInstance(insts[0])
 	if err := v.Err(); err != nil {
-		log.Fatal(err)
+		return LLMProfile{}, fmt.Errorf("failed to build CUE instance: %w", err)
 	}
 	path := cue.ParsePath(fmt.Sprintf(`llm_configs["%s"]`, profileKey))
 
-	// Lookup the 'output' field and print it out
+	// Lookup the profile configuration
 	profileKeyConfig := v.LookupPath(path)
 	if profileKeyConfig.Err() != nil {
-		log.Fatalf("Error loading config for profile %s: %v", profileKey, profileKeyConfig.Err())
-		return LLMProfile{}, profileKeyConfig.Err()
+		return LLMProfile{}, fmt.Errorf("error loading config for profile %s: %w", profileKey, profileKeyConfig.Err())
 	}
 	fmt.Println(profileKeyConfig)
 	var profile LLMProfile
 	if err := profileKeyConfig.Decode(&profile); err != nil {
-		log.Fatalf("Error decoding config for profile %s: %v", profileKey, err)
-		return LLMProfile{}, err
+		return LLMProfile{}, fmt.Errorf("error decoding config for profile %s: %w", profileKey, err)
 	}
 	return profile, nil
 }

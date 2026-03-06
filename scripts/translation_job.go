@@ -15,10 +15,10 @@ import (
 
 // JSONTranslator loads a json array file, translates input_text, and writes back with "<model>_output".
 type Translator struct {
-	LLMClient  *synonymgenrator.LLMClient
-	InputPath  string
-	OutputPath string // optional; if empty auto-generates
-	HasHeader  bool   // if true, treats first row as header and appends output column header
+	LLMClient    *synonymgenrator.LLMClient
+	InputPath    string
+	OutputPath   string // optional; if empty auto-generates
+	inputColName string
 }
 
 // NewTranslator creates a translator.
@@ -40,10 +40,10 @@ func NewTranslator(client *synonymgenrator.LLMClient, profile_id, inputPath, out
 	outputPath := filepath.Join(outputFolder, fmt.Sprintf("%s.csv", profile_id))
 
 	return &Translator{
-		LLMClient:  client,
-		InputPath:  inputPath,
-		OutputPath: outputPath,
-		HasHeader:  HasHeader,
+		LLMClient:    client,
+		InputPath:    inputPath,
+		OutputPath:   outputPath,
+		inputColName: "original_query", // default column name for input text
 	}, nil
 }
 
@@ -67,27 +67,24 @@ func (t *Translator) Run(ctx context.Context) error {
 	defer inF.Close()
 
 	cr := csv.NewReader(inF)
-	cr.FieldsPerRecord = -1 // allow variable columns
+	header, header_err := cr.Read()
+	if header_err != nil {
+		if header_err == io.EOF {
+			return fmt.Errorf("input CSV is empty")
+		}
+		return fmt.Errorf("failed to read header: %w", header_err)
+	}
 
-	// Read header to find input_col index
-	var inputColIndex int = 0 // default to first column
-	if t.HasHeader {
-		header, err := cr.Read()
-		if err != nil {
-			return fmt.Errorf("failed to read header: %w", err)
+	// Find the original_query column index
+	inputColIndex := -1
+	for i, col := range header {
+		if strings.TrimSpace(col) == t.inputColName {
+			inputColIndex = i
+			break
 		}
-		// Find input_col column
-		inputColIndex = -1
-		for i, col := range header {
-			if strings.TrimSpace(col) == "input_col" {
-				inputColIndex = i
-				break
-			}
-		}
-		if inputColIndex == -1 {
-			// Fallback to first column if input_col not found
-			inputColIndex = 0
-		}
+	}
+	if inputColIndex == -1 {
+		return fmt.Errorf("column '%s' not found in input CSV header", t.inputColName)
 	}
 
 	// 1) Load already processed inputs from output file if it exists
@@ -122,13 +119,7 @@ func (t *Translator) Run(ctx context.Context) error {
 		}
 	}
 
-	// 2) Create output directory if it doesn't exist
-	outputDir := filepath.Dir(t.OutputPath)
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	// 3) Open output file for writing (will overwrite)
+	// 2) Open output file for writing (will overwrite)
 	outF, err := os.Create(t.OutputPath)
 	if err != nil {
 		return fmt.Errorf("failed to create output CSV: %w", err)
@@ -143,10 +134,10 @@ func (t *Translator) Run(ctx context.Context) error {
 	seen := make(map[string]struct{}, 1024)
 	ordered := make([]string, 0, 1024)
 
-	for {
+	for { // loop until EOF
 		record, err := cr.Read()
 		if err == io.EOF {
-			break
+			break // this should bring us out of loop when done
 		}
 		if err != nil {
 			return fmt.Errorf("failed reading CSV row %d: %w", rowIdx, err)
@@ -184,7 +175,7 @@ func (t *Translator) Run(ctx context.Context) error {
 
 	// If no existing data, write header
 	if len(existingData) == 0 {
-		if err := cw.Write([]string{"input", "output", "latency_ms"}); err != nil {
+		if err := cw.Write([]string{"original_query", "output", "latency_ms"}); err != nil {
 			return fmt.Errorf("failed writing output header: %w", err)
 		}
 	}

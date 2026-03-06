@@ -52,7 +52,7 @@ llm_configs: {
 			   - `Use professional marketplace terms (e.g., "未開封", "美品", "連番") ONLY when the input context explicitly requires it.`
 
 			`Output Format:`
-			- `Output ONLY the results separated by a comma.`
+			- `Output ONLY the results separated by a pipe (|).`
 			- `No explanations, no scoring labels, no extra text.`
 			"""
 	}
