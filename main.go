@@ -20,7 +20,7 @@ func main() {
 		log.Fatalf("Failed to load config profile '%s': %v", profileKey, err)
 	}
 
-	// Create LLM client
+	// Create LLM client.
 	llmClient := &synonymgenrator.LLMClient{
 		Profile: profile,
 	}
