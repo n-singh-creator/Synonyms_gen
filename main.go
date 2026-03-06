@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	Convertor "nayan/m/Convertor"
 	synonymgenrator "nayan/m/Synonym_genrator"
 	"nayan/m/scripts"
 )
@@ -52,4 +53,18 @@ func main() {
 	}
 
 	fmt.Println("Translation job completed successfully!")
+
+	// Convert CSV to JSON format
+	csvPath := "synonyms_genrator_output/translator_gemini_3_synonyms_gen_zh_to_jp.csv"
+	jsonPath := "synonyms_genrator_output/translator_gemini_3_synonyms_gen_zh_to_jp.json"
+
+	fmt.Printf("\nConverting CSV to JSON format...\n")
+	fmt.Printf("Input CSV: %s\n", csvPath)
+	fmt.Printf("Output JSON: %s\n", jsonPath)
+
+	if err := Convertor.SaveGenratorOutputToJSONFile(csvPath, jsonPath); err != nil {
+		log.Fatalf("Failed to convert CSV to JSON: %v", err)
+	}
+
+	fmt.Println("CSV to JSON conversion completed successfully!")
 }
