@@ -13,8 +13,13 @@ import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from searchers.duckduckgo_search import duckduckgoSearch
-
+from LLmHelper import load_query_explainer_config, QueryExplainerClient
 # -------- Configuration Variables --------
+
+# Load configuration LLM explainer configration 
+profile = load_query_explainer_config("explain_query_gpt_5_search")
+
+
 
 # Get the script's directory and construct absolute paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -136,6 +141,11 @@ class TestMercariSearch(unittest.TestCase):
         Test the search functionality using the searchInApp helper method.
         Loads data from BigQuery output and uses product match counts as length scores.
         """
+        # Create client
+        explainer = QueryExplainerClient(profile)
+
+        # Explain a query
+        
         try:
             with open(INPUT_JSON_FILE, "r", encoding="utf-8") as file:
                 data = json.load(file)
@@ -158,7 +168,10 @@ class TestMercariSearch(unittest.TestCase):
                     print(f"\n{'='*60}")
                     print(f"Input Text: {inputText}")
                     print(f"Products Matched for Input: {productsMatched.get(inputText, 0)}")
+                    
                     self.duckduckgo_searcher.searchDuckduckgo(inputText)
+                    explanation = explainer.explain_query(inputText)
+                    print(explanation)
                     print(f"Synonyms:")
                     
                     for query in AnnotationArray:
