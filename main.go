@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"nayan/m/Bigquery"
 	Convertor "nayan/m/Convertor"
 	synonymgenrator "nayan/m/Synonym_genrator"
 	"nayan/m/scripts"
@@ -28,6 +29,12 @@ const (
 
 	// jsonOutputFileName is the name of the JSON file to be created from the CSV output
 	jsonOutputFileName = "translator_gemini_3_synonyms_gen_zh_to_jp.json"
+
+	// bigQueryJSONPath is the path to the BigQuery dump JSON file
+	bigQueryJSONPath = "bigQueryDump/bigquery.json"
+
+	// bigQueryOutputDir is the directory where BigQuery-enhanced results will be saved
+	bigQueryOutputDir = "bigQueryOutput"
 )
 
 func main() {
@@ -80,4 +87,16 @@ func main() {
 	}
 
 	fmt.Println("CSV to JSON conversion completed successfully!")
+
+	// Process with BigQuery data
+	fmt.Printf("\nProcessing with BigQuery data...\n")
+	fmt.Printf("BigQuery JSON: %s\n", bigQueryJSONPath)
+	fmt.Printf("Output directory: %s\n", bigQueryOutputDir)
+
+	if err := Bigquery.ProcessCSVWithBigQueryData(csvPath, bigQueryJSONPath, bigQueryOutputDir); err != nil {
+		log.Fatalf("Failed to process with BigQuery data: %v", err)
+	}
+
+	fmt.Println("BigQuery processing completed successfully!")
+	fmt.Printf("Enhanced output saved to: %s/translator_gemini_3_synonyms_gen_zh_to_jp.json\n", bigQueryOutputDir)
 }
