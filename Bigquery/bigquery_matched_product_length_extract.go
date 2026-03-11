@@ -1,11 +1,11 @@
 package Bigquery
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	Convertor "nayan/m/Convertor"
 	"os"
-
 	"strings"
 )
 
@@ -30,8 +30,8 @@ type MatchedQueryValue struct {
 
 // Product represents a single product with ID and score
 type Product struct {
-	ProductID string `json:"product_id"`
-	Score     string `json:"score"`
+	ProductID string  `json:"product_id"`
+	Score     float64 `json:"score"`
 }
 
 // EnhancedSynonymEntry represents a synonym entry with product match counts
@@ -42,18 +42,53 @@ type EnhancedSynonymEntry struct {
 	Annotated       bool           `json:"annotated"`
 }
 
-// LoadBigQueryJSON loads and parses the BigQuery JSON dump file
+// LoadBigQueryJSON loads and parses the BigQuery JSON dump file in NDJSON format
+// (newline-delimited JSON where each line is a separate JSON object)
 func LoadBigQueryJSON(filePath string) ([]BigQueryEntry, error) {
-	data, err := os.ReadFile(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read BigQuery JSON file: %w", err)
+		return nil, fmt.Errorf("failed to open BigQuery JSON file: %w", err)
 	}
+	defer file.Close()
 
 	var entries []BigQueryEntry
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, fmt.Errorf("failed to parse BigQuery JSON: %w", err)
+	scanner := bufio.NewScanner(file)
+
+	// Increase buffer size for large lines (up to 10MB per line)
+	const maxCapacity = 10 * 1024 * 1024
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+
+		// Parse each line as a JSON object
+		var entry BigQueryEntry
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			// Log warning but continue processing other lines
+			fmt.Printf("Warning: Failed to parse line %d: %v\n", lineNum, err)
+			continue
+		}
+
+		entries = append(entries, entry)
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading file: %w", err)
+	}
+
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no valid entries found in BigQuery JSON file")
+	}
+
+	fmt.Printf("Successfully loaded %d entries from BigQuery dump\n", len(entries))
 	return entries, nil
 }
 
