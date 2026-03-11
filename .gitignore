@@ -30,3 +30,6 @@ go.work.sum
 
 # Archive folder
 Archive/
+
+# macOS
+.DS_Store
