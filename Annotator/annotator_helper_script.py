@@ -156,7 +156,7 @@ class TestMercariSearch(unittest.TestCase):
                 # self.searchPreconditionSetup()
                 for row in data:
                     inputText = row["input_text"]
-                    AnnotationArray = [inputText] + row["output_synonyms"]
+                    AnnotationArray = row["output_synonyms"]
                     
                    
                     isAnnotated = row["annotated"]
@@ -173,14 +173,14 @@ class TestMercariSearch(unittest.TestCase):
                     explanation = explainer.explain_query(inputText)
                     print(explanation)
                     print(f"Synonyms:")
-                    
+                    InputSearchTermRecall = productsMatched.get(inputText, 0)
                     for query in AnnotationArray:
                         print(f"\n{'-'*40}")
                         print(f"Searching -  {query}")
                         
                         # Get the length from products_matched for this synonym
-                        searchPageLength = productsMatched.get(query, 0)
-                        print(f"Product Match Count (from BigQuery): {searchPageLength}")
+                        synSearchLength = productsMatched.get(query, 0)
+                        print(f"Product Match Count (from BigQuery): {synSearchLength}")
                         
                         self.searchInApp(query)
                         # time.sleep(1)  # Wait for results to load
@@ -196,7 +196,7 @@ class TestMercariSearch(unittest.TestCase):
                             "input_col": inputText,
                             "synonyms_col": query,
                             "relevancy": relevancy,
-                            "length": searchPageLength,
+                            "length change": (synSearchLength-InputSearchTermRecall),
                             "comment": comment
                         }
                         self.appendToResultCSVFile(OUTPUT_CSV_FILE, row_data)
