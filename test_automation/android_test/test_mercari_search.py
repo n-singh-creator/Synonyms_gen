@@ -50,6 +50,26 @@ class TestMercariSearch(unittest.TestCase):
         if self.driver:
             self.driver.quit()
 
+    def load_searched_queries(self):
+        """
+        Load previously searched queries from the output CSV.
+        
+        Returns:
+            set: A set of queries that have already been searched
+        """
+        searched_queries = set()
+        
+        if os.path.exists(OUTPUT_CSV):
+            try:
+                df = pd.read_csv(OUTPUT_CSV)
+                if 'original_query' in df.columns:
+                    searched_queries = set(df['original_query'].dropna().astype(str))
+                    print(f"Loaded {len(searched_queries)} previously searched queries")
+            except Exception as e:
+                print(f"Warning: Could not load existing searches: {e}")
+        
+        return searched_queries
+
     def log_search(self, original_query, searched_query, searched=True):
         """
         Log search activity to CSV file.
@@ -107,7 +127,7 @@ class TestMercariSearch(unittest.TestCase):
             )
             
             # Wait for results to load
-            time.sleep(3)
+            time.sleep(5)
             
         except Exception as e:
             print(f"Error searching for '{text}': {str(e)}")
@@ -122,6 +142,7 @@ class TestMercariSearch(unittest.TestCase):
         2. Parse output column (split by |)
         3. Search each synonym
         4. Log all searches to output CSV
+        5. Skip queries that have already been searched
         """
         try:
             # Load input CSV
@@ -132,6 +153,8 @@ class TestMercariSearch(unittest.TestCase):
             print(f"\nLoaded {len(df)} rows from {INPUT_CSV}")
             print(f"Columns: {df.columns.tolist()}\n")
             
+            # Load previously searched queries
+            searched_queries = self.load_searched_queries()
         
             # Process each row
             for index, row in df.iterrows():
@@ -141,24 +164,39 @@ class TestMercariSearch(unittest.TestCase):
                 print(f"\n{'='*60}")
                 print(f"Row {index + 1}/{len(df)}")
                 print(f"Original Query: {original_query}")
-                print(f"Output: {output}")
-                print(f"{'='*60}")
+                searches_performed = 0
+                searches_skipped = 0
                 
                 # 1. Search original query
-                print(f"\n[1] Searching original query: {original_query}")
-                self.search_in_app(original_query)
-                self.log_search(original_query, original_query, searched=True)
-                print(f"✓ Logged: {original_query}")
+                if original_query in searched_queries:
+                    print(f"\n[1] Skipping original query (already searched): {original_query}")
+                    searches_skipped += 1
+                else:
+                    print(f"\n[1] Searching original query: {original_query}")
+                    self.search_in_app(original_query)
+                    self.log_search(original_query, original_query, searched=True)
+                    searched_queries.add(original_query)
+                    print(f"✓ Logged: {original_query}")
+                    searches_performed += 1
                 
                 # 2. Parse and search synonyms
                 synonyms = [s.strip() for s in output.split('|') if s.strip()]
                 print(f"\n[2] Found {len(synonyms)} synonym(s)")
                 
                 for i, synonym in enumerate(synonyms, 1):
-                    print(f"\n[2.{i}] Searching synonym: {synonym}")
-                    self.search_in_app(synonym)
-                    self.log_search(original_query, synonym, searched=True)
-                    print(f"✓ Logged: {synonym}")
+                    if synonym in searched_queries:
+                        print(f"\n[2.{i}] Skipping synonym (already searched): {synonym}")
+                        searches_skipped += 1
+                    else:
+                        print(f"\n[2.{i}] Searching synonym: {synonym}")
+                        self.search_in_app(synonym)
+                        self.log_search(original_query, synonym, searched=True)
+                        searched_queries.add(synonym)
+                        print(f"✓ Logged: {synonym}")
+                        searches_performed += 1
+                
+                print(f"\n✓ Completed row {index + 1}: {searches_performed} searches performed, {searches_skipped} skipped")
+                print(f"✓ Logged: {synonym}")
                 
                 print(f"\n✓ Completed row {index + 1}: Total {1 + len(synonyms)} searches")
             
