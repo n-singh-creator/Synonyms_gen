@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -38,6 +39,11 @@ const (
 )
 
 func main() {
+	// Parse command line flags
+	setupOnly := flag.Bool("setup", false, "Run setup phase only (translation and conversion, skip BigQuery processing)")
+	processBigQueryOnly := flag.Bool("process", false, "Run BigQuery processing only (skip translation)")
+	flag.Parse()
+
 	ctx := context.Background()
 
 	// Load configuration profile
@@ -63,25 +69,34 @@ func main() {
 	}
 
 	// Run translation job
-	fmt.Printf("Starting translation job...\n")
-	fmt.Printf("Input: %s\n", inputPath)
-	fmt.Printf("Output directory: %s\n", outputDir)
-	fmt.Printf("Profile: %s\n", profileKey)
-
-	if err := translator.Run(ctx); err != nil {
-		log.Fatalf("Translation job failed: %v", err)
-	}
-
-	fmt.Println("Translation job completed successfully!")
-
-	// Convert CSV to JSON format
 	csvPath := outputDir + "/" + csvOutputFileName
 	jsonPath := outputDir + "/" + jsonOutputFileName
 
-	fmt.Printf("\nConverting CSV to JSON format...\n")
-	fmt.Printf("Input CSV: %s\n", csvPath)
-	fmt.Printf("Output JSON: %s\n", jsonPath)
+	// If processBigQueryOnly flag is set, skip translation and conversion
+	if !*processBigQueryOnly {
+		if err := translator.Run(ctx); err != nil {
+			log.Fatalf("Translation job failed: %v", err)
+		}
 
+		fmt.Println("Translation job completed successfully!")
+
+		// Convert CSV to JSON format
+		fmt.Printf("\nConverting CSV to JSON format...\n")
+		fmt.Printf("Input CSV: %s\n", csvPath)
+		fmt.Printf("Output JSON: %s\n", jsonPath)
+
+		if err := Convertor.SaveGenratorOutputToJSONFile(csvPath, jsonPath); err != nil {
+			log.Fatalf("Failed to convert CSV to JSON: %v", err)
+		}
+
+		fmt.Println("CSV to JSON conversion completed successfully!")
+	}
+
+	// If setupOnly flag is set, skip BigQuery processing
+	if *setupOnly {
+		fmt.Println("\n✓ Setup phase completed. Skipping BigQuery processing.")
+		return
+	}
 	if err := Convertor.SaveGenratorOutputToJSONFile(csvPath, jsonPath); err != nil {
 		log.Fatalf("Failed to convert CSV to JSON: %v", err)
 	}

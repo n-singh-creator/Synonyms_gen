@@ -49,7 +49,7 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
     case2_healthy_to_low = 0  # original >= healthy AND generated < healthy
     case3_both_low = 0        # both < low_threshold
     case4_both_healthy = 0    # both >= healthy
-
+    case5_other = 0           # all other cases
     for r in records:
         input_text = r.get("input_text", "")
         output_synonyms = r.get("output_synonyms") or [] #Output synonym is array in json file
@@ -94,7 +94,8 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
             case3_both_low += 1
         elif original_syn_recall >= healthy_recall and generated_syn_recall >= healthy_recall:
             case4_both_healthy += 1
-
+        else:
+            case5_other += 1
         per_row.append(
             {
                 "input_text": input_text,
@@ -127,6 +128,7 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
         "case2_healthy_to_low": case2_healthy_to_low,
         "case3_both_low": case3_both_low,
         "case4_both_healthy": case4_both_healthy,
+        "case5_other": case5_other,
         "per_row": per_row,  # later use this for error analysis or exporting results
     }
 
@@ -140,7 +142,7 @@ def main():
     parser.add_argument("--out", default=None, help="Optional: write per-row results to JSON")
     args = parser.parse_args()
 
-    records = load_json_records("bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json")
+    records = load_json_records("Archive/bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json")
     results = analyze(records, max_retrieve=args.max_retrieve, 
                      low_threshold=args.low_threshold, 
                      healthy_recall=args.healthy_recall)
@@ -166,6 +168,7 @@ def main():
     print(f"Case 2 (orginal query recall performed better than {args.healthy_recall}({args.healthy_recall/12} scrolls) ,\n generated recall performed worse than {args.low_threshold}({args.low_threshold/12} scrolls)): {results['case2_healthy_to_low']}")
     print(f"Case 3 (Both Low): {results['case3_both_low']}")
     print(f"Case 4 (Both Healthy): {results['case4_both_healthy']}")
+    print(f"Case 5 (Other Cases): {results['case5_other']}")
     
     # Optional export
     if args.out:
