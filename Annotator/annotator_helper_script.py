@@ -35,7 +35,7 @@ OUTPUT_CSV_FILE = os.path.join(PROJECT_ROOT, "Annotated_result/search_results.cs
 APPIUM_SERVER_URL = "http://127.0.0.1:4723"
 
 # CSV column names for the output file
-CSV_FIELDNAMES = ["input_col", "synonyms_col", "relevancy", "length", "comment"]
+CSV_FIELDNAMES = ["input_col", "synonyms_col", "relevancy", "length change", "comment"]
 
 # -------- Appium Capabilities --------
 # Configuration for Android device/emulator connection
