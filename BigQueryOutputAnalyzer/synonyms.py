@@ -50,6 +50,12 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
     case3_both_low = 0        # both < low_threshold
     case4_both_healthy = 0    # both >= healthy
     case5_other = 0           # all other cases
+    # New metrics for synonym recall > 40 and <= 40
+    syn_recall_gt_40 = 0
+    syn_recall_le_40 = 0
+    need_refining = 0
+    syn_other_case = 0
+
     for r in records:
         input_text = r.get("input_text", "")
         output_synonyms = r.get("output_synonyms") or [] #Output synonym is array in json file
@@ -61,10 +67,18 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
         syn_recalls = [safe_int(products_matched.get(s, 0)) for s in output_synonyms]
         generated_syn_recall = max(syn_recalls) if syn_recalls else 0
 
+        # Improved logic: count each row only once
+        if any(recall > 40 for recall in syn_recalls):
+            syn_recall_gt_40 += 1
+        elif any(recall < 40 for recall in syn_recalls) and original_syn_recall > 40:
+            need_refining += 1
+        else:
+            syn_other_case += 1
+
+       
         delta = generated_syn_recall - original_syn_recall
-        
         deltas.append(delta)
-        
+
         if delta > 0:
             positive_delta.append(delta)
             pos += 1
@@ -84,7 +98,7 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
 
         if generated_syn_recall == max_retrieve:
             gen_hits_max += 1
-        
+
         # Calculate 4 metrics based on thresholds
         if original_syn_recall < low_threshold and generated_syn_recall >= healthy_recall:
             case1_low_to_healthy += 1
@@ -129,6 +143,10 @@ def analyze(records: List[Dict[str, Any]], max_retrieve: int = 120, low_threshol
         "case3_both_low": case3_both_low,
         "case4_both_healthy": case4_both_healthy,
         "case5_other": case5_other,
+        "syn_recall_gt_40": syn_recall_gt_40,
+        "syn_recall_le_40": syn_recall_le_40,
+        "need_refining": need_refining,
+        "syn_other_case": syn_other_case,
         "per_row": per_row,  # later use this for error analysis or exporting results
     }
 
@@ -142,13 +160,12 @@ def main():
     parser.add_argument("--out", default=None, help="Optional: write per-row results to JSON")
     args = parser.parse_args()
 
-    records = load_json_records("Archive/bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json")
+    records = load_json_records("bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json")
     results = analyze(records, max_retrieve=args.max_retrieve, 
                      low_threshold=args.low_threshold, 
                      healthy_recall=args.healthy_recall)
 
     # Print summary statistics
-    
     print(f"Records: {results['n_records']}")
     print(f"Average delta: {results['avg_delta']:.6f}")
     print(f"Average positive delta: {results['avg_positive_delta']:.6f}")
@@ -161,7 +178,7 @@ def main():
     print(f"Delta = 0: {results['delta_zero']}")
     ##make a Bar graph to show the distribution of original recall == max_retrieve, generated recall == max_retrieve, and any synonym recall == max_retrieve
     print(f"Original recall == {args.max_retrieve}: {results['orig_equals_max_retrieve']}")
-    print(f"Generated (max synonym) == {args.max_retrieve}: {results['generated_equals_max_retrieve']}")
+    print(f"Generated (max synonym) == {results['generated_equals_max_retrieve']}")
     ##########
     print("\n--- Threshold-based Metrics ---")
     print(f"Case 1 (orginal query recall performed worse than {args.low_threshold}({args.low_threshold/12} scrolls)  ,\n generated recall performed better than {args.healthy_recall}): {results['case1_low_to_healthy']}")
@@ -169,7 +186,12 @@ def main():
     print(f"Case 3 (Both Low): {results['case3_both_low']}")
     print(f"Case 4 (Both Healthy): {results['case4_both_healthy']}")
     print(f"Case 5 (Other Cases): {results['case5_other']}")
-    
+    print("\n--- Synonym Recall Metrics ---")
+    print(f"Synonyms recall > 60: {results['syn_recall_gt_40']}")
+    print(f"Synonyms recall <= 40: {results['syn_recall_le_40']}")
+    print(f"Need refining (synonym recall < 40 and original recall > 40): {results['need_refining']}")
+    print(f"Other cases: {results['syn_other_case']}")
+
     # Optional export
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
