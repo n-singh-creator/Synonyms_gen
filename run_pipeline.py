@@ -213,13 +213,29 @@ def processing_phase():
     print_phase_header("2. PROCESSING")
     
     try:
-        # Step 1: Execute BigQuery processing in main.go
+        # Step 1: Verify BigQuery coverage
+        print_step("Verifying BigQuery coverage against search_log.csv")
+        result = subprocess.run(
+            ["python3", "verification/verify_bigquery_coverage.py"],
+            capture_output=False,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print_error("BigQuery coverage verification failed!")
+            print_warning("Missing queries have been removed from search_log.csv")
+            print_warning("Please re-run the pipeline from the beginning (setup phase)")
+            sys.exit(1)
+        
+        print_success("BigQuery coverage verification passed!")
+        
+        # Step 2: Execute BigQuery processing in main.go
         run_command(
             ["go", "run", "main.go", "--process"],
             "Processing BigQuery data"
         )
         
-        # Step 2: Run synonyms analyzer
+        # Step 3: Run synonyms analyzer
         run_command(
             ["python", "BigQueryOutputAnalyzer/synonyms.py"],
             "Analyzing BigQuery output"
