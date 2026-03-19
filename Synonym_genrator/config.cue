@@ -11,7 +11,8 @@ package config
 llm_configs: {
 	// Current LLM configuration for translating search keywords to Japanese
 	translator_gemini_3_synonyms_gen_zh_to_jp: #LLMProfile & {
-		model_name:  "gemini-3-pro"
+		model_name: "openai/gpt-5.4-2026-03-05"
+		// model_name:  "openai/o3-pro"
 		temperature: 0.2
 		max_tokens:  1024
 		system_prompt: """

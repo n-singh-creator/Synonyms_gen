@@ -25,18 +25,23 @@ func (l *LLMClient) Translate(ctx context.Context, query string) (string, error)
 	// Pick a model. You can swap this for another chat-capable model constant as needed.
 	model := l.Profile.ModelID
 	println("Input - ", query)
-	resp, err := client.Responses.New(ctx, responses.ResponseNewParams{
+
+	params := responses.ResponseNewParams{
 		Model: model,
 		Input: responses.ResponseNewParamsInputUnion{
 			OfString: openai.String(query),
 		},
-
 		// System prompt equivalent
-		Instructions: openai.String(l.Profile.SystemPrompt),
-
-		Temperature:     openai.Float(l.Profile.Temperature),
+		Instructions:    openai.String(l.Profile.SystemPrompt),
 		MaxOutputTokens: openai.Int(int64(l.Profile.MaxTokens)),
-	})
+	}
+
+	// Only add temperature for models that support it (o3, o1, gpt-5 don't support it)
+	if !strings.Contains(model, "o3") && !strings.Contains(model, "o1") && !strings.Contains(model, "gpt-5") {
+		params.Temperature = openai.Float(l.Profile.Temperature)
+	}
+
+	resp, err := client.Responses.New(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate content: %w", err)
 	}
