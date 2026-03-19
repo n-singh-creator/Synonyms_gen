@@ -116,6 +116,7 @@ class TestMercariSearch(unittest.TestCase):
             # Focus the field
             search_input.click()
             search_input.clear()
+            time.sleep(0.5)  # Small delay to ensure field is cleared
             search_input.clear() # Clear twice to ensure field is empty (sometimes one clear may not work)
             # Enter search text
             search_input.send_keys(text)
@@ -127,7 +128,7 @@ class TestMercariSearch(unittest.TestCase):
             )
             
             # Wait for results to load
-            time.sleep(5)
+            time.sleep(3)
             
         except Exception as e:
             print(f"Error searching for '{text}': {str(e)}")
