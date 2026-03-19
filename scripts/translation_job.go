@@ -189,7 +189,12 @@ func (t *Translator) Run(ctx context.Context) error {
 
 		llmOut := strings.TrimSpace(out)
 		if trErr != nil || llmOut == "" {
-			// Keep pipeline going; optionally include error text in logs, not CSV.
+			// Log the actual error for debugging
+			if trErr != nil {
+				fmt.Printf("ERROR translating '%s': %v\n", input, trErr)
+			} else {
+				fmt.Printf("WARNING: Empty output for '%s'\n", input)
+			}
 			llmOut = "N/A"
 		}
 
