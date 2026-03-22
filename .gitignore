@@ -27,7 +27,7 @@ go.work.sum
 *.csv
 *.json
 *.pyc
-
+*.txt
 # Archive folder
 Archive/
 
