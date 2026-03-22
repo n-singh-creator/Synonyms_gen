@@ -17,7 +17,7 @@ import (
 const (
 	// profileKey specifies which configuration profile to use for the translation job
 	// This profile contains settings like model name, prompts, and other LLM parameters
-	profileKey = "translator_gemini_3_synonyms_gen_zh_to_jp"
+	profileKey = "translator_synonyms_gen_en_to_jp"
 
 	// inputPath is the path to the input CSV file containing the original queries to translate
 	inputPath = "original_query_lists/input.csv"
