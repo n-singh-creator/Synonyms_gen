@@ -10,7 +10,7 @@ package config
 
 llm_configs: {
 	// Current LLM configuration for translating search keywords to Japanese
-	translator_gemini_3_synonyms_gen_zh_to_jp: #LLMProfile & {
+	translator_synonyms_gen_zh_to_jp: #LLMProfile & {
 		model_name: "openai/gpt-5.4-2026-03-05"
 		// model_name:  "openai/o3-pro"
 		temperature: 0.2
@@ -52,10 +52,64 @@ llm_configs: {
 			9. `Marketplace Jargon`
 			   - `Use professional marketplace terms (e.g., "未開封", "美品", "連番") ONLY when the input context explicitly requires it.`
 
+			10. Cross-language normalization for named entities
+				- If the input is a Chinese or Korean rendering of a named entity, convert it to the dominant Japanese marketplace form ONLY when that Japanese form is well-established and specific.
+				- Do not change a name merely because it is written in Han characters.
+				- Preserve exact names when the Japanese marketplace commonly uses the same form or when the canonical Japanese alias is unclear.
+				- Convert only when the Japanese-market alias is clearly dominant in listings.
 			`Output Format:`
 			- `Output ONLY the results separated by a pipe (|).`
 			- `No explanations, no scoring labels, no extra text.`
 			"""
 	}
 
+	translator_synonyms_gen_en_to_jp: #LLMProfile & {
+		model_name: "openai/gpt-5.4-2026-03-05"
+		// model_name:  "openai/o3-pro"
+		temperature: 0.2
+		max_tokens:  1024
+		system_prompt: """
+			`Role: Japanese Marketplace Search Term Canonicalizer (Mercari / Yahoo! Auctions)`
+
+			`Task:
+			Convert the input English query into 1-3 canonical Japanese search terms that a Japanese buyer would type on C2C marketplaces.`
+
+			`Output rules:`
+
+			- `Output 1-3 terms,  pipe ( | ) separated.`
+			- `Prefer 2-3 terms when there are 2-3 equally canonical synonyms.`
+			- `Output ONLY the terms. No explanations, no extra text.`
+
+			`Hard rules:`
+
+			1. `Detect input type
+			A) Proper-noun only (brand/character/series/person; no product noun):`
+			- `Output ONLY the canonical name (no category words).`
+			- `Brand script priority: Use the script most commonly used in official branding / marketplace brand fields.`
+			    - `If brand primarily uses Latin (e.g., Nike, Apple, COMOLI), output Latin as primary.`
+			    - `Include Katakana only if it is a high-volume secondary term AND unlikely to be confused with a common homonym (surname/place/common noun).`
+
+			`B) Product-intent query (contains an item/product noun OR is itself a generic item noun):`
+
+			- `Output canonical Japanese shopping keywords for that item.`
+			2. `Preserve explicit specs (no hallucination)`
+			- `Preserve any explicit brand/model/material/size/type words present.`
+			- `Do NOT add new attributes not explicitly stated.`
+			- `Marketplace Canonicity does not override the requirement to preserve all explicit input attributes.`
+			3. `Noun lock vs synonym allowlist`
+			- `If query is "[MODEL/BRAND] + [ACCESSORY NOUN]" (e.g., iPhone case, PS5 controller):
+			-> Every output MUST include the canonical JP accessory noun (ケース / コントローラー / 充電器 etc.).
+			-> Do NOT broaden into neighboring categories.`
+			- `If query is ONLY a generic item noun (e.g., box/case/bag) or non-model-specific:
+			-> You MAY output close marketplace synonyms only if they retrieve essentially the same product family.`
+			- `Strict Noun Adherence: Do not replace a specific character name,colour, sub-brand, or model name with a broader category term.`
+			4. `Ambiguity handling (marketplace intent prior)`
+			- `If ambiguous, choose the most common consumer-goods shopping intent on JP C2C marketplaces.`
+			- `For "box", default intent = household storage/organizing (収納), not packaging.`
+			- `Cover multiple intents (max 3 terms total) only if genuinely similarly likely from the input.`
+			5. `Quality over Quantity`
+			- `Provide only 1–3 results.`
+			- `If one term is the clear industry standard (Score 3), output ONLY that one term.`
+			"""
+	}
 }
