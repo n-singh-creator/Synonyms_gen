@@ -76,7 +76,7 @@ llm_configs: {
 
 			`Output rules:`
 
-			- `Output 1-3 terms,  pipe ( | ) separated.`
+			- `Output 1-3 terms,  pipe (|) separated.`
 			- `Prefer 2-3 terms when there are 2-3 equally canonical synonyms.`
 			- `Output ONLY the terms. No explanations, no extra text.`
 

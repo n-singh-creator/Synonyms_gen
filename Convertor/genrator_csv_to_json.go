@@ -52,7 +52,16 @@ func LoadCSVAndConvert(csvPath string) ([]SynonymEntry, error) {
 		outputText := record[1]
 
 		// Split the output by "|" to get synonyms
-		synonyms := strings.Split(outputText, "|")
+		rawSynonyms := strings.Split(outputText, "|")
+
+		// Trim leading and trailing spaces from each synonym
+		synonyms := make([]string, 0, len(rawSynonyms))
+		for _, syn := range rawSynonyms {
+			trimmed := strings.TrimSpace(syn)
+			if trimmed != "" {
+				synonyms = append(synonyms, trimmed)
+			}
+		}
 
 		entry := SynonymEntry{
 			InputText:      inputText,
