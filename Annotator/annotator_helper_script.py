@@ -170,8 +170,7 @@ class TestMercariSearch(unittest.TestCase):
                     print(f"Products Matched for Input: {productsMatched.get(inputText, 0)}")
                     
                     self.duckduckgo_searcher.searchDuckduckgo(inputText)
-                    explanation = explainer.explain_query(inputText)
-                    print(explanation)
+                    
                     print(f"Synonyms:")
                     InputSearchTermRecall = productsMatched.get(inputText, 0)
                     for query in AnnotationArray:
@@ -183,6 +182,9 @@ class TestMercariSearch(unittest.TestCase):
                         print(f"Product Match Count (from BigQuery): {synSearchLength}")
                         
                         self.searchInApp(query)
+                        explanation = explainer.explain_query(f"original query -> {inputText} , japanese synonym of query -> {query}")
+                        print(explanation)
+
                         # time.sleep(1)  # Wait for results to load
                         
                         relevancy = input("Enter relevancy score 0-3: ")
