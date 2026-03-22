@@ -37,7 +37,7 @@ func NewTranslator(client *synonymgenrator.LLMClient, profile_id, inputPath, out
 	if outputFolder == "" {
 		outputFolder = inputPath // same dir, different name
 	}
-	outputPath := filepath.Join(outputFolder, fmt.Sprintf("%s.csv", profile_id))
+	outputPath := filepath.Join(outputFolder, fmt.Sprintf("%s.csv", "translator_gemini_3_synonyms_gen_zh_to_jp"))
 
 	return &Translator{
 		LLMClient:    client,
@@ -89,18 +89,26 @@ func (t *Translator) Run(ctx context.Context) error {
 
 	// 1) Load already processed inputs from output file if it exists
 	alreadyProcessed := make(map[string]bool)
-	existingData := make([][]string, 0)
+	fileExists := false
 
 	if outFile, err := os.Open(t.OutputPath); err == nil {
 		defer outFile.Close()
+		fileExists = true
 		outReader := csv.NewReader(outFile)
 		outReader.FieldsPerRecord = -1
 		outReader.LazyQuotes = true
 
-		// Read header
-		header, err := outReader.Read()
+		// Read header from OUTPUT file to find original_query column
+		outHeader, err := outReader.Read()
 		if err == nil {
-			existingData = append(existingData, header)
+			// Find original_query column in OUTPUT file
+			outputColIndex := 0 // Default to first column
+			for i, col := range outHeader {
+				if strings.TrimSpace(col) == t.inputColName {
+					outputColIndex = i
+					break
+				}
+			}
 
 			// Read existing rows
 			for {
@@ -108,25 +116,41 @@ func (t *Translator) Run(ctx context.Context) error {
 				if err == io.EOF {
 					break
 				}
-				if err == nil && len(row) > 0 {
-					input := strings.TrimSpace(row[inputColIndex])
+				if err == nil && len(row) > outputColIndex {
+					input := strings.TrimSpace(row[outputColIndex])
 					if input != "" {
 						alreadyProcessed[input] = true
-						existingData = append(existingData, row)
 					}
 				}
 			}
 		}
 	}
 
-	// 2) Open output file for writing (will overwrite)
-	outF, err := os.Create(t.OutputPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output CSV: %w", err)
+	// 2) Open output file for writing
+	var outF *os.File
+	var cw *csv.Writer
+
+	if fileExists {
+		// File exists, open for appending
+		outF, err = os.OpenFile(t.OutputPath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to open output CSV for append: %w", err)
+		}
+		cw = csv.NewWriter(outF)
+	} else {
+		// File doesn't exist, create new
+		outF, err = os.Create(t.OutputPath)
+		if err != nil {
+			return fmt.Errorf("failed to create output CSV: %w", err)
+		}
+		cw = csv.NewWriter(outF)
+		// Write header for new file
+		if err := cw.Write([]string{"original_query", "output", "latency_ms"}); err != nil {
+			outF.Close()
+			return fmt.Errorf("failed writing output header: %w", err)
+		}
 	}
 	defer outF.Close()
-
-	cw := csv.NewWriter(outF)
 	defer cw.Flush()
 
 	rowIdx := 0
@@ -166,20 +190,6 @@ func (t *Translator) Run(ctx context.Context) error {
 		ordered = append(ordered, input)
 	}
 
-	// 3) Write existing data first (header + already processed rows)
-	for _, row := range existingData {
-		if err := cw.Write(row); err != nil {
-			return fmt.Errorf("failed writing existing row: %w", err)
-		}
-	}
-
-	// If no existing data, write header
-	if len(existingData) == 0 {
-		if err := cw.Write([]string{"original_query", "output", "latency_ms"}); err != nil {
-			return fmt.Errorf("failed writing output header: %w", err)
-		}
-	}
-
 	// 4) Translate each new unique input and append to output
 	processed := 0
 	for i, input := range ordered {
@@ -209,8 +219,8 @@ func (t *Translator) Run(ctx context.Context) error {
 	if err := cw.Error(); err != nil {
 		return fmt.Errorf("failed flushing output CSV: %w", err)
 	}
-	fmt.Printf("Wrote output CSV: %s (new rows=%d, total rows=%d, skipped=%d)\n",
-		t.OutputPath, processed, len(existingData)-1+processed, len(alreadyProcessed))
+	fmt.Printf("Wrote output CSV: %s (new rows=%d, skipped=%d)\n",
+		t.OutputPath, processed, len(alreadyProcessed))
 
 	return nil
 }
