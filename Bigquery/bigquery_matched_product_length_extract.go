@@ -144,8 +144,11 @@ func FindProductMatchCounts(inputQuery string, synonyms []string, bigQueryData [
 
 // ProcessCSVWithBigQueryData processes the CSV file with BigQuery data to generate enhanced output
 func ProcessCSVWithBigQueryData(csvPath, bigQueryJSONPath, outputDir string) error {
-	// Load CSV data
-	csvEntries, err := Convertor.LoadCSVAndConvert(csvPath)
+	// Construct output path to preserve annotations if file exists
+	outputPath := outputDir + "/translator_gemini_3_synonyms_gen_zh_to_jp.json"
+
+	// Load CSV data (preserving annotations from existing output file if it exists)
+	csvEntries, err := Convertor.LoadCSVAndConvert(csvPath, outputPath)
 	if err != nil {
 		return fmt.Errorf("failed to load CSV: %w", err)
 	}
@@ -176,7 +179,6 @@ func ProcessCSVWithBigQueryData(csvPath, bigQueryJSONPath, outputDir string) err
 	}
 
 	// Save to JSON file
-	outputPath := outputDir + "/translator_gemini_3_synonyms_gen_zh_to_jp.json"
 	jsonData, err := json.MarshalIndent(enhancedEntries, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal enhanced entries: %w", err)

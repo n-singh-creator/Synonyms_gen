@@ -17,7 +17,23 @@ type SynonymEntry struct {
 }
 
 // LoadCSVAndConvert reads the CSV file and converts it to the target JSON format
-func LoadCSVAndConvert(csvPath string) ([]SynonymEntry, error) {
+// It preserves annotation status from existing JSON file if synonyms haven't changed
+func LoadCSVAndConvert(csvPath string, existingJSONPath string) ([]SynonymEntry, error) {
+	// Load existing JSON data to preserve annotation status
+	existingData := make(map[string]SynonymEntry)
+	if existingJSONPath != "" {
+		if jsonFile, err := os.Open(existingJSONPath); err == nil {
+			defer jsonFile.Close()
+			var existingEntries []SynonymEntry
+			decoder := json.NewDecoder(jsonFile)
+			if err := decoder.Decode(&existingEntries); err == nil {
+				for _, entry := range existingEntries {
+					existingData[entry.InputText] = entry
+				}
+			}
+		}
+	}
+
 	file, err := os.Open(csvPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open CSV file: %w", err)
@@ -63,10 +79,21 @@ func LoadCSVAndConvert(csvPath string) ([]SynonymEntry, error) {
 			}
 		}
 
+		// Check if this entry existed before and if synonyms changed
+		annotated := false
+		if existingEntry, exists := existingData[inputText]; exists {
+			// Compare synonyms to see if they changed
+			if synonymsEqual(existingEntry.OutputSynonyms, synonyms) {
+				// Synonyms are the same, preserve annotation status
+				annotated = existingEntry.Annotated
+			}
+			// If synonyms changed, annotated stays false (needs re-annotation)
+		}
+
 		entry := SynonymEntry{
 			InputText:      inputText,
 			OutputSynonyms: synonyms,
-			Annotated:      false,
+			Annotated:      annotated,
 		}
 
 		entries = append(entries, entry)
@@ -75,9 +102,35 @@ func LoadCSVAndConvert(csvPath string) ([]SynonymEntry, error) {
 	return entries, nil
 }
 
+// synonymsEqual compares two synonym slices for equality (order-independent, case-insensitive, trimmed)
+func synonymsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Check if all elements in 'a' exist in 'b' (case-insensitive, trimmed)
+	for _, elemA := range a {
+		normalizedA := strings.ToLower(strings.TrimSpace(elemA))
+		found := false
+		for _, elemB := range b {
+			normalizedB := strings.ToLower(strings.TrimSpace(elemB))
+			if normalizedA == normalizedB {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
 // ConvertCSVToJSON reads the CSV file and returns JSON bytes
-func ConvertCSVToJSON(csvPath string) ([]byte, error) {
-	entries, err := LoadCSVAndConvert(csvPath)
+// Pass existingJSONPath to preserve annotation status, or empty string for new conversion
+func ConvertCSVToJSON(csvPath string, existingJSONPath string) ([]byte, error) {
+	entries, err := LoadCSVAndConvert(csvPath, existingJSONPath)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +144,10 @@ func ConvertCSVToJSON(csvPath string) ([]byte, error) {
 }
 
 // SaveGenratorOutputToJSONFile reads the CSV and saves it as a JSON file
+// It preserves annotation status from the existing JSON file if it exists
 func SaveGenratorOutputToJSONFile(csvPath, jsonPath string) error {
-	jsonData, err := ConvertCSVToJSON(csvPath)
+	// Try to use the existing JSON file to preserve annotations
+	jsonData, err := ConvertCSVToJSON(csvPath, jsonPath)
 	if err != nil {
 		return err
 	}
