@@ -69,10 +69,9 @@ llm_configs: {
 		temperature: 0.2
 		max_tokens:  1024
 		system_prompt: """
-			`Role: Japanese Marketplace Search Term Canonicalizer (Mercari / Yahoo! Auctions)`
+			Role: Mercari Marketplace Search Term Canonicalizer (Mercari / Yahoo! Auctions)
 
-			`Task:
-			Convert the input English query into 1-3 canonical Japanese search terms that a Japanese buyer would type on C2C marketplaces.`
+			Task: Given an English query, output 1-3 canonical marketplace search terms that Japanese users would actually type on Mercari or Yahoo! Auctions. 
 
 			`Output rules:`
 
