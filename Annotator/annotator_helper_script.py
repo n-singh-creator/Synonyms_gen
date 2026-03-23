@@ -144,7 +144,6 @@ class TestMercariSearch(unittest.TestCase):
         # Create client
         explainer = QueryExplainerClient(profile)
 
-        # Explain a query
         
         try:
             with open(INPUT_JSON_FILE, "r", encoding="utf-8") as file:
@@ -176,20 +175,25 @@ class TestMercariSearch(unittest.TestCase):
                     for query in AnnotationArray:
                         print(f"\n{'-'*40}")
                         print(f"Searching -  {query}")
-                        
-                        # Get the length from products_matched for this synonym
                         synSearchLength = productsMatched.get(query, 0)
-                        print(f"Product Match Count (from BigQuery): {synSearchLength}")
-                        
-                        self.searchInApp(query)
-                        explanation = explainer.explain_query(f"original query -> {inputText} , japanese synonym of query -> {query}")
-                        print(explanation)
+                        relevancy = 0
+                        if( query.strip().lower() == inputText.strip().lower() and synSearchLength > 110 ):
+                        # Get the length from products_matched for this synonym
+                            relevancy = -1
+                            comment = "Deferred to second trial: unchanged output with high recall"
+                        else:
 
-                        # time.sleep(1)  # Wait for results to load
+                            print(f"Product Match Count (from BigQuery): {synSearchLength}")
                         
-                        relevancy = input("Enter relevancy score 0-3: ")
-                        comment = input("Enter comment (if any): ")
-                   
+                            self.searchInApp(query)
+                            explanation = explainer.explain_query(f"original query -> {inputText} , japanese synonym of query -> {query}")
+                            print(explanation)
+
+                            # time.sleep(1)  # Wait for results to load
+                            
+                            relevancy = input("Enter relevancy score 0-3: ")
+                            comment = input("Enter comment (if any): ")
+                    
                         if comment:
                             print(f"Comment for '{query}': {comment}")
                         print(f"Relevancy score for '{query}': {relevancy}")
