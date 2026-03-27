@@ -160,8 +160,8 @@ myd/
 | **Python** | 3.10+ | Annotation tooling, Appium/Selenium automation, LLM helper |
 | **CUE CLI** | Latest | Evaluating `.cue` config files (used by both Go and Python) |
 | **Node.js** | 18+ | Required for Appium server |
-| **Appium** | 2.x | Android app automation |
-| **Android SDK / Emulator** | API 34+ (Android 16 configured in code) | Running Mercari app for recall/annotation searches |
+| **Appium** | 2.x | **MUST be installed system-wide via npm** - Android app automation |
+| **Android SDK / Emulator** | API 34+ (Android 16 configured in code) | **MUST be running with Mercari app open and SERP (Search) window visible** |
 | **Mercari Global App** | Latest | Installed on emulator/device (`com.mercari.global`) |
 | **Google Chrome** | Latest | Selenium DuckDuckGo searches |
 | **ChromeDriver** | Matching Chrome version | Required by Selenium |
@@ -210,6 +210,8 @@ source .env
 
 ## Setup
 
+**Complete these steps in order before running the pipeline:**
+
 ### 1. Clone the repository
 
 ```bash
@@ -244,22 +246,36 @@ pip install -r test_automation/requirements.txt
 pip install openai selenium
 ```
 
-### 6. Set up Appium (for recall and annotation stages)
+### 6. Install Appium system-wide (REQUIRED)
+
+**Appium must be installed globally on your system** for both recall searches and annotation:
 
 ```bash
 npm install -g appium
 appium driver install uiautomator2
 ```
 
-### 7. Set up Android emulator
+Verify installation:
+
+```bash
+appium --version  # Should show 2.x
+```
+
+### 7. Set up Android emulator (CRITICAL)
+
+**IMPORTANT:** The Android emulator must be running with the Mercari app open and the SERP (Search Results Page) window visible before running any pipeline stage that involves searches.
 
 1. Install Android SDK and create an emulator (API 34+ / Android 16).
 2. Install the Mercari Global app (`com.mercari.global`) on the emulator.
-3. Verify the emulator is visible:
+3. **Start the emulator and launch the Mercari app.**
+4. **Open the search interface (SERP window) in the Mercari app** - this ensures the automation can immediately interact with the search functionality.
+5. Verify the emulator is visible:
 
 ```bash
-adb devices
+adb devices  # Should show your emulator as 'device'
 ```
+
+6. **Keep the emulator running** throughout the entire pipeline execution.
 
 ### 8. Prepare input data
 
@@ -302,6 +318,11 @@ This will:
 
 ### Stage 2a: Automated Recall Search (Appium)
 
+**Prerequisites:**
+- Android emulator is running
+- Mercari app is open with SERP (Search) window visible
+- Appium server is running
+
 Start the Appium server, then run the automated search test:
 
 ```bash
@@ -316,9 +337,12 @@ This searches all original queries + synonyms in the Mercari app and logs result
 
 ### Stage 2b: BigQuery Dump + Enrichment
 
-1. Wait ~30 minutes after Appium searches complete.
-2. Export search logs from BigQuery and save to `bigQueryDump/bigquery.json`.
-3. Re-run `main.go` (it will skip already-translated rows and proceed to BigQuery enrichment):
+**⏰ IMPORTANT WAIT TIME:** After completing the Appium searches, you **MUST wait approximately 30 minutes** for the search log data to propagate and become available in BigQuery.
+
+1. **Wait ~30 minutes** after Appium searches complete (this is the minimum time required for search logs to appear in BigQuery).
+2. Export search logs from BigQuery using your preferred method (BigQuery console, `bq` CLI, etc.).
+3. **Save the exported JSON to `bigQueryDump/bigquery.json`** (create the `bigQueryDump` directory if it doesn't exist).
+4. Re-run `main.go` (it will skip already-translated rows and proceed to BigQuery enrichment):
 
 ```bash
 go run main.go
@@ -327,6 +351,12 @@ go run main.go
 Output: `bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json`
 
 ### Stage 3: Human Relevancy Annotation
+
+**Prerequisites:**
+- Android emulator is running
+- Mercari app is open with SERP (Search) window visible
+- Appium server is running
+- BigQuery enriched data is available in `bigQueryOutput/`
 
 Start Appium, then run the annotation script:
 
@@ -474,30 +504,7 @@ input_col,synonyms_col,relevancy,length,comment
 - If the Python annotator fails with OpenAI auth errors, verify the same variable is exported in your shell
 - No `.env` file is auto-loaded; you must `source .env` or `export` the variable manually
 
-### LLM Rate Limits / Retries
-
-- The Go translator does not implement automatic retries. If a call fails, the output is written as `N/A`
-- On re-run, already-processed rows are skipped (resume support), so you can simply re-run `go run main.go` after transient failures
-- The Python `QueryExplainerClient` also does not retry; exceptions propagate to the caller
-
 ### CUE CLI Not Found
 
 - The Python `LLmHelper/config.py` shells out to `cue export`. Install CUE: `go install cuelang.org/go/cmd/cue@latest`
 - Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is in your `PATH`
-
----
-
-## TODO / Unknown (Needs Confirmation)
-
-- **BigQuery export process:** The exact BigQuery query/table used to produce `bigQueryDump/bigquery.json` is not documented in the repository. The dump must be obtained externally.
-- **CI/CD:** No CI configuration files (GitHub Actions, Makefile, shell scripts) were found. All stages are run manually.
-- **Python requirements file scope:** `test_automation/requirements.txt` covers Appium and pandas. The `openai` and `selenium` packages (used by `LLmHelper` and `searchers`) are not listed in any requirements file. Install them separately: `pip install openai selenium`.
-- **Annotation scale definitions:** The relevancy score is prompted as `0-3` but the specific meaning of each level (Perfect/Good/Fair/Bad) is not defined in the code. Establish a rubric before annotation.
-- **Android platform version:** Capabilities hardcode `platformVersion: "16"`. Adjust this to match your actual emulator/device.
-- **Input CSV sourcing:** How the initial `original_query_lists/input.csv` is produced (manual curation, export from analytics, etc.) is not documented.
-
----
-
-## License
-
-Not specified in the repository.
