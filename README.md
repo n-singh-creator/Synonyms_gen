@@ -14,7 +14,6 @@ A multilingual synonym generation and search-quality evaluation system for e-com
 - [Running Each Stage](#running-each-stage)
 - [Data Contracts](#data-contracts)
 - [Troubleshooting](#troubleshooting)
-- [TODO / Unknown (Needs Confirmation)](#todo--unknown-needs-confirmation)
 
 ---
 
