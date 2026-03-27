@@ -43,7 +43,7 @@ flowchart LR
 
 **Stage 1 -- Synonym Generation (Go):** An LLM (Gemini 3 Pro via a LiteLLM proxy) translates/generates Japanese search synonyms from input queries (e.g. Chinese). Output is a CSV of `original_query | pipe-delimited synonyms | latency`, then converted to JSON.
 
-**Stage 2 -- Recall Assessment (Appium + BigQuery + Go):** Synonyms are searched in the production Mercari app via Appium automation. After ~30 minutes, search logs become available in BigQuery. The BigQuery dump is downloaded locally and the Go `Bigquery` package cross-references each query/synonym to count matched products, producing an enhanced JSON file.
+**Stage 2 -- Recall Assessment (Appium + BigQuery + Go):** Synonyms are searched in the production Mercari app via Appium automation. After ~30 minutes, search logs become available in BigQuery. The BigQuery dump must be downloaded (in jsonl AS bigQueryDump/bigQuery.json) locally and the Go `Bigquery` package cross-references each query/synonym to count matched products, producing an updated JSON file with recall value randing from 0-120.
 
 **Stage 3 -- Relevancy Annotation (Python, human-in-the-loop):** The annotator script loads the enhanced JSON, opens DuckDuckGo for visual context, calls an LLM (GPT-5 Search via LiteLLM) to explain each query in English, drives Appium to search in the live app, and prompts the human annotator for a relevancy score (0-3) plus an optional comment. Results are saved to `Annotated_result/search_results.csv`.
 
@@ -267,7 +267,7 @@ appium --version  # Should show 2.x
 1. Install Android SDK and create an emulator (API 34+ / Android 16).
 2. Install the Mercari Global app (`com.mercari.global`) on the emulator.
 3. **Start the emulator and launch the Mercari app.**
-4. **Open the search interface (SERP window) in the Mercari app** - this ensures the automation can immediately interact with the search functionality.
+4. **Open the search interface - SERP window(by searching something in search box) in the Mercari app** - this ensures the automation can immediately interact with the search functionality.
 5. Verify the emulator is visible:
 
 ```bash
@@ -296,7 +296,9 @@ iPhone 充電器
 ---
 
 ## Running Each Stage
-
+```bash
+RUN command -> python3 run_pipeline.py
+```
 ### Stage 1: Synonym Generation + Conversion + BigQuery Enrichment
 
 `main.go` runs all three Go stages sequentially:
@@ -311,9 +313,7 @@ This will:
 2. Call Gemini 3 Pro via LiteLLM for each query
 3. Write `synonyms_genrator_output/translator_gemini_3_synonyms_gen_zh_to_jp.csv`
 4. Convert the CSV to `synonyms_genrator_output/translator_gemini_3_synonyms_gen_zh_to_jp.json`
-5. If `bigQueryDump/bigquery.json` exists, enrich with product match counts and write to `bigQueryOutput/translator_gemini_3_synonyms_gen_zh_to_jp.json`
 
-> **Note:** Step 5 requires a BigQuery dump to exist. On the first run, you may need to comment out the BigQuery processing in `main.go` or provide an empty JSON array file.
 
 ### Stage 2a: Automated Recall Search (Appium)
 
